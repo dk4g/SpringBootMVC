@@ -3,7 +3,11 @@ package com.dk.service;
 import com.dk.model.Employee;
 
 import com.dk.repository.EmployeeRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -17,10 +21,19 @@ public class EmployeeService {
 //            new Employee("I1","Bruce","Wayne","USA"),
 //            new Employee("I2","Peter","Parker","USA")
 //            ));
+    private static final Logger LOG = LoggerFactory.getLogger(EmployeeService.class);
 
     @Autowired
     private EmployeeRepository empRepo;
 
+    @Autowired
+    private AmqpTemplate rabbitTemplateBean;
+
+    @Value("${backend.rabbitmq.exchange}")
+    private String exchangeName;
+
+    @Value("${backend.rabbitmq.routingkey}")
+    private String routingKey;
 
     public List<Employee> getAll(){
         //return empList;
@@ -44,7 +57,12 @@ public class EmployeeService {
 
     public void createEmp(Employee emp) {
 //        empList.add(emp);
-        empRepo.save(emp);
+       Employee retEmp =  empRepo.save(emp);
+       if (retEmp != null) {
+           LOG.info("SENDING message to RabbitMQ");
+           rabbitTemplateBean.convertAndSend(exchangeName, routingKey, retEmp);
+       }
+
     }
 
 
